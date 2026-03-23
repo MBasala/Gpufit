@@ -96,6 +96,8 @@ __device__ void calculate_compton_pe(
             dh_dc += tmp * spctrm_h_kn[i];
             dh_dp += tmp * spctrm_h_ph[i];
         }
+        // Clamp to avoid -log(0) = inf when exp() underflows
+        if (h < REAL(1e-30)) h = REAL(1e-30);
         value[point_index] = -log(h);
         current_derivative[0 * n_points] = dh_dc / h / scc;
         current_derivative[1 * n_points] = dh_dp / h / scp;
@@ -110,9 +112,17 @@ __device__ void calculate_compton_pe(
             dl_dc += tmp * spctrm_l_kn[i];
             dl_dp += tmp * spctrm_l_ph[i];
         }
+        if (l < REAL(1e-30)) l = REAL(1e-30);
         value[point_index] = -log(l);
         current_derivative[0 * n_points] = dl_dc / l / scc;
         current_derivative[1 * n_points] = dl_dp / l / scp;
+    }
+    else
+    {
+        // Unexpected point_index — zero outputs to avoid uninitialized data
+        value[point_index] = REAL(0.0);
+        current_derivative[0 * n_points] = REAL(0.0);
+        current_derivative[1 * n_points] = REAL(0.0);
     }
 
 }

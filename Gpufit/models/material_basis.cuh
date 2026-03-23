@@ -105,6 +105,9 @@ __device__ void calculate_material_basis(
             dh_da1 += tmp * spctrm_h_m1[i];
             dh_da2 += tmp * spctrm_h_m2[i];
         }
+        // Clamp to avoid -log(0) = inf when exp() underflows
+        if (h < REAL(1e-30)) h = REAL(1e-30);
+        if (pch < REAL(1e-30)) pch = REAL(1e-30);
         value[point_index] = -log(h / pch);
         current_derivative[0 * n_points] = dh_da1 / h / scc;
         current_derivative[1 * n_points] = dh_da2 / h / scp;
@@ -119,9 +122,18 @@ __device__ void calculate_material_basis(
             dl_da1 += tmp * spctrm_l_m1[i];
             dl_da2 += tmp * spctrm_l_m2[i];
         }
+        if (l < REAL(1e-30)) l = REAL(1e-30);
+        if (pcl < REAL(1e-30)) pcl = REAL(1e-30);
         value[point_index] = -log(l / pcl);
         current_derivative[0 * n_points] = dl_da1 / l / scc;
         current_derivative[1 * n_points] = dl_da2 / l / scp;
+    }
+    else
+    {
+        // Unexpected point_index — zero outputs to avoid uninitialized data
+        value[point_index] = REAL(0.0);
+        current_derivative[0 * n_points] = REAL(0.0);
+        current_derivative[1 * n_points] = REAL(0.0);
     }
 }
 
