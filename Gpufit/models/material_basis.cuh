@@ -4,44 +4,39 @@
 /* Description of the calculate_material_basis function
 * =====================================================
 *
-* This function calculates the values of a material basis decomposition
-* model and its partial derivatives with respect to the model parameters.
+* Two-material basis decomposition for dual-energy CT sinograms.
 *
-* Unlike the COMPTON_PE model which uses analytic Klein-Nishina and
-* photoelectric basis functions, MATERIAL_BASIS uses two tabulated
-* material LAC curves (m1_cp, m2_cp) passed through user_info.
+* Unlike COMPTON_PE which uses analytic Klein-Nishina and photoelectric
+* basis functions, MATERIAL_BASIS uses tabulated LAC curves for two
+* known materials (e.g., water + iodine, or bone + soft tissue).
+*
+* The forward model for each energy spectrum is:
+*   sinogram(E) = -log( sum_i( spectrum(E_i) * exp(-(a1*m1(E_i) + a2*m2(E_i))) ) )
 *
 * Parameters:
+*   p[0] = a1: Material 1 line integral coefficient
+*   p[1] = a2: Material 2 line integral coefficient
 *
-* parameters: An input vector of model parameters.
-*             p[0]: Material 1 line integral coefficient
-*             p[1]: Material 2 line integral coefficient
-*
-* n_fits: The number of fits (sinogram pixels).
-*
-* n_points: The number of data points per fit (2: high and low energy).
-*
-* value: An output vector of model function values.
-*
-* derivative: An output vector of model function partial derivatives.
-*
-* point_index: The data point index (0 = high energy, 1 = low energy).
-*
-* fit_index: The fit index.
-*
-* chunk_index: The chunk index.
-*
-* user_info: An input vector containing user information.
-*            Layout:
-*            [scc, scp, pch, pcl, n_kev_h, n_kev_l,
-*             m1_cp[n_kev_h], m2_cp[n_kev_l],
-*             kev_h[n_kev_h], kev_l[n_kev_l],
-*             spctrm_h[n_kev_h], spctrm_l[n_kev_l],
-*             spctrm_h_ph[n_kev_h], spctrm_l_ph[n_kev_l],
-*             spctrm_h_kn[n_kev_h], spctrm_l_kn[n_kev_l]]
-*
-* user_info_size: The size of user_info in bytes.
-*
+* user_info layout:
+*   [0]  scc       : scaling factor for material 1
+*   [1]  scp       : scaling factor for material 2
+*   [2]  pch       : high-energy photon count (for normalization)
+*   [3]  pcl       : low-energy photon count (for normalization)
+*   [4]  n_kev_h   : number of energy bins for high spectrum
+*   [5]  n_kev_l   : number of energy bins for low spectrum
+*   followed by:
+*     m1_h[n_kev_h]      : material 1 LAC at high-energy keV points
+*     m1_l[n_kev_l]      : material 1 LAC at low-energy keV points
+*     m2_h[n_kev_h]      : material 2 LAC at high-energy keV points
+*     m2_l[n_kev_l]      : material 2 LAC at low-energy keV points
+*     kev_h[n_kev_h]     : photon energies (high) — reserved
+*     kev_l[n_kev_l]     : photon energies (low) — reserved
+*     spctrm_h[n_kev_h]  : incident spectrum (high)
+*     spctrm_l[n_kev_l]  : incident spectrum (low)
+*     spctrm_h_m1[n_kev_h]: m1-weighted spectrum (high) for derivatives
+*     spctrm_l_m1[n_kev_l]: m1-weighted spectrum (low) for derivatives
+*     spctrm_h_m2[n_kev_h]: m2-weighted spectrum (high) for derivatives
+*     spctrm_l_m2[n_kev_l]: m2-weighted spectrum (low) for derivatives
 */
 
 __device__ void calculate_material_basis(
@@ -60,11 +55,6 @@ __device__ void calculate_material_basis(
     REAL const * param = parameters;
 
     // user info
-    // layout is:
-    // scc, scp, pch, pcl, n_kev_h, n_kev_l,
-    // m1_cp, m2_cp, kev_h, kev_l,
-    // spctrm_h, spctrm_l, spctrm_h_ph, spctrm_l_ph, spctrm_h_kn, spctrm_l_kn
-
     REAL * uif = (REAL *) user_info;
     REAL const scc = uif[0];
     REAL const scp = uif[1];
@@ -74,11 +64,13 @@ __device__ void calculate_material_basis(
     int const n_kev_l = (int) uif[5];
     int ci = 6;
 
-    // tabulated material basis function values
-    REAL * m1_cp = uif + ci; ci += n_kev_h;
-    REAL * m2_cp = uif + ci; ci += n_kev_l;
+    // Material curves — separate arrays for each energy grid
+    REAL * m1_h = uif + ci; ci += n_kev_h;
+    REAL * m1_l = uif + ci; ci += n_kev_l;
+    REAL * m2_h = uif + ci; ci += n_kev_h;
+    REAL * m2_l = uif + ci; ci += n_kev_l;
 
-    // energy levels (reserved in user_info layout, advance index)
+    // energy levels (reserved, advance index)
     ci += n_kev_h;  // kev_h
     ci += n_kev_l;  // kev_l
 
@@ -87,12 +79,12 @@ __device__ void calculate_material_basis(
     REAL * spctrm_l = uif + ci; ci += n_kev_l;
 
     // pre-multiplied spectra for derivatives
-    REAL * spctrm_h_ph = uif + ci; ci += n_kev_h;
-    REAL * spctrm_l_ph = uif + ci; ci += n_kev_l;
-    REAL * spctrm_h_kn = uif + ci; ci += n_kev_h;
-    REAL * spctrm_l_kn = uif + ci; ci += n_kev_l;
+    REAL * spctrm_h_m1 = uif + ci; ci += n_kev_h;
+    REAL * spctrm_l_m1 = uif + ci; ci += n_kev_l;
+    REAL * spctrm_h_m2 = uif + ci; ci += n_kev_h;
+    REAL * spctrm_l_m2 = uif + ci; ci += n_kev_l;
 
-    // value
+    // parameters
     REAL a1 = param[0], a2 = param[1];
     REAL h = 0, l = 0;
     REAL dh_da1 = 0, dh_da2 = 0;
@@ -105,29 +97,29 @@ __device__ void calculate_material_basis(
 
     if (point_index == 0)
     {
-        // for high energy projection
+        // high energy projection
         for (int i = 0; i < n_kev_h; ++i)
         {
-            tmp = exp(-(a1 * m1_cp[i] + a2 * m2_cp[i]));
+            tmp = exp(-(a1 * m1_h[i] + a2 * m2_h[i]));
             h += tmp * spctrm_h[i];
-            dh_da1 += tmp * spctrm_h_kn[i];
-            dh_da2 += tmp * spctrm_h_ph[i];
+            dh_da1 += tmp * spctrm_h_m1[i];
+            dh_da2 += tmp * spctrm_h_m2[i];
         }
-        value[0] = -log(h * pch / pch);
+        value[0] = -log(h / pch) + log(pch);
         current_derivative[0 * n_points] = dh_da1 / h / scc;
         current_derivative[1 * n_points] = dh_da2 / h / scp;
     }
     else
     {
-        // for low energy projection
+        // low energy projection
         for (int i = 0; i < n_kev_l; ++i)
         {
-            tmp = exp(-(a1 * m1_cp[i] + a2 * m2_cp[i]));
+            tmp = exp(-(a1 * m1_l[i] + a2 * m2_l[i]));
             l += tmp * spctrm_l[i];
-            dl_da1 += tmp * spctrm_l_kn[i];
-            dl_da2 += tmp * spctrm_l_ph[i];
+            dl_da1 += tmp * spctrm_l_m1[i];
+            dl_da2 += tmp * spctrm_l_m2[i];
         }
-        value[1] = -log(l * pcl / pcl);
+        value[1] = -log(l / pcl) + log(pcl);
         current_derivative[0 * n_points] = dl_da1 / l / scc;
         current_derivative[1 * n_points] = dl_da2 / l / scp;
     }

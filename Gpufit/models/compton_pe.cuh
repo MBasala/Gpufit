@@ -3,48 +3,30 @@
 
 #include "kn_pe.cuh"
 
-/* Description of the calculate_gauss2d function
-* ==============================================
+/* Compton/Photoelectric dual-energy CT sinogram decomposition model.
 *
-* This function calculates the values of two-dimensional Compton/PE model functions
-* and their partial derivatives with respect to the model parameters. 
+* Decomposes dual-energy sinograms into Compton scattering (c) and
+* photoelectric absorption (p) basis coefficients using the model:
 *
-* No independent variables are passed to this model function.  Hence, the 
-* (X, Y) coordinate of the first data value is assumed to be (0.0, 0.0).  For
-* a fit size of M x N data points, the (X, Y) coordinates of the data are
-* simply the corresponding array index values of the data array, starting from
-* zero.
+*   sinogram(E) = -log( sum_i( spectrum(E_i) * exp(-(c*KN(E_i) + p*PE(E_i))) ) )
+*
+* where KN is the Klein-Nishina cross-section and PE = (60/E)^3.
 *
 * Parameters:
+*   p[0]: Compton line integral coefficient (c)
+*   p[1]: Photoelectric line integral coefficient (p)
 *
-* parameters: An input vector of model parameters.
-*             p[0]: Compton line integral 
-*             p[1]: PE line integral
+* n_points must be 2 (high and low energy projections).
+* point_index: 0 = high energy, 1 = low energy.
 *
-* n_fits: The number of fits. (not used)
-*
-* n_points: The number of data points per fit.
-*
-* value: An output vector of model function values.
-*
-* derivative: An output vector of model function partial derivatives.
-*
-* point_index: The data point index.
-*
-* fit_index: The fit index. (not used)
-*
-* chunk_index: The chunk index. (not used)
-*
-* user_info: An input vector containing user information. (not used)
-*
-* user_info_size: The size of user_info in bytes. (not used)
-*
-* Calling the calculate_compton_pe function
-* ======================================
-*
-* This __device__ function can be only called from a __global__ function or an other
-* __device__ function.
-*
+* user_info layout:
+*   [0]  scc       : scaling factor for Compton
+*   [1]  scp       : scaling factor for PE
+*   [2,3]           : reserved (photon counts)
+*   [4]  n_kev_h   : number of energy bins (high spectrum)
+*   [5]  n_kev_l   : number of energy bins (low spectrum)
+*   followed by: kev_h, kev_l, spctrm_h, spctrm_l,
+*                spctrm_h_ph, spctrm_l_ph, spctrm_h_kn, spctrm_l_kn
 */
 
 __device__ void calculate_compton_pe(
