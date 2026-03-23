@@ -96,21 +96,21 @@ __device__ void calculate_compton_pe(
             dh_dc += tmp * spctrm_h_kn[i];
             dh_dp += tmp * spctrm_h_ph[i];
         }
-        value[0] = -log(h);
+        value[point_index] = -log(h);
         current_derivative[0 * n_points] = dh_dc / h / scc;
-        current_derivative[1 * n_points] = dh_dp / h / scp; 
-    } 
-    else
+        current_derivative[1 * n_points] = dh_dp / h / scp;
+    }
+    else if (point_index == 1)
     {
         // for low energy projection
         for (int i = 0; i < n_kev_l; ++i)
         {
             tmp = exp(-(c * klein_nishina(kev_l[i]) + p * photoelectric(kev_l[i])));
-            l += tmp * spctrm_l[i];        
+            l += tmp * spctrm_l[i];
             dl_dc += tmp * spctrm_l_kn[i];
             dl_dp += tmp * spctrm_l_ph[i];
         }
-        value[1] = -log(l);
+        value[point_index] = -log(l);
         current_derivative[0 * n_points] = dl_dc / l / scc;
         current_derivative[1 * n_points] = dl_dp / l / scp;
     }

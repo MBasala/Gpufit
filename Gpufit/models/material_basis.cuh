@@ -97,7 +97,7 @@ __device__ void calculate_material_basis(
 
     if (point_index == 0)
     {
-        // high energy projection
+        // high energy projection: -log(I / I0) where I0 = pch
         for (int i = 0; i < n_kev_h; ++i)
         {
             tmp = exp(-(a1 * m1_h[i] + a2 * m2_h[i]));
@@ -105,13 +105,13 @@ __device__ void calculate_material_basis(
             dh_da1 += tmp * spctrm_h_m1[i];
             dh_da2 += tmp * spctrm_h_m2[i];
         }
-        value[0] = -log(h / pch) + log(pch);
+        value[point_index] = -log(h / pch);
         current_derivative[0 * n_points] = dh_da1 / h / scc;
         current_derivative[1 * n_points] = dh_da2 / h / scp;
     }
-    else
+    else if (point_index == 1)
     {
-        // low energy projection
+        // low energy projection: -log(I / I0) where I0 = pcl
         for (int i = 0; i < n_kev_l; ++i)
         {
             tmp = exp(-(a1 * m1_l[i] + a2 * m2_l[i]));
@@ -119,7 +119,7 @@ __device__ void calculate_material_basis(
             dl_da1 += tmp * spctrm_l_m1[i];
             dl_da2 += tmp * spctrm_l_m2[i];
         }
-        value[1] = -log(l / pcl) + log(pcl);
+        value[point_index] = -log(l / pcl);
         current_derivative[0 * n_points] = dl_da1 / l / scc;
         current_derivative[1 * n_points] = dl_da2 / l / scp;
     }
