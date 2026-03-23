@@ -15,8 +15,8 @@
 #include "spline_3d.cuh"
 #include "spline_3d_multichannel.cuh"
 #include "spline_3d_phase_multichannel.cuh"
-#include "spline_4d.cuh"
-#include "spline_5d.cuh"
+#include "compton_pe.cuh"
+#include "material_basis.cuh"
 
 __device__ void calculate_model(
     ModelID const model_id,
@@ -72,11 +72,11 @@ __device__ void calculate_model(
     case SPLINE_3D_PHASE_MULTICHANNEL:
         calculate_spline3d_phase_multichannel(parameters, n_fits, n_points, value, derivative, point_index, fit_index, chunk_index, user_info, user_info_size);
         break;
-    case SPLINE_4D:
-        calculate_spline4d(parameters, n_fits, n_points, value, derivative, point_index, fit_index, chunk_index, user_info, user_info_size);
+    case COMPTON_PE:
+        calculate_compton_pe(parameters, n_fits, n_points, value, derivative, point_index, fit_index, chunk_index, user_info, user_info_size);
         break;
-    case SPLINE_5D:
-        calculate_spline5d(parameters, n_fits, n_points, value, derivative, point_index, fit_index, chunk_index, user_info, user_info_size);
+    case MATERIAL_BASIS:
+        calculate_material_basis(parameters, n_fits, n_points, value, derivative, point_index, fit_index, chunk_index, user_info, user_info_size);
         break;
     default:
         assert(0); // unknown model ID
@@ -100,8 +100,8 @@ void configure_model(ModelID const model_id, int & n_parameters, int & n_dimensi
     case SPLINE_3D:             n_parameters = 5; n_dimensions = 3; break;
     case SPLINE_3D_MULTICHANNEL:         n_parameters = 5; n_dimensions = 4; break;
     case SPLINE_3D_PHASE_MULTICHANNEL:   n_parameters = 6; n_dimensions = 4; break;
-    case SPLINE_4D:             n_parameters = 6; n_dimensions = 4; break;
-    case SPLINE_5D:             n_parameters = 7; n_dimensions = 5; break;
+    case COMPTON_PE:            n_parameters = 2; n_dimensions = 1; break;
+    case MATERIAL_BASIS:        n_parameters = 2; n_dimensions = 1; break;
     default: throw std::runtime_error("unknown model ID");
     }
 }
