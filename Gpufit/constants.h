@@ -18,7 +18,9 @@ enum ModelID {
     SPLINE_3D_MULTICHANNEL = 11,
     SPLINE_3D_PHASE_MULTICHANNEL = 12,
     SPLINE_4D = 13,
-    SPLINE_5D = 14
+    SPLINE_5D = 14,
+    COMPTON_PE = 17,
+    MATERIAL_BASIS = 18
 };
 
 // estimator ID
